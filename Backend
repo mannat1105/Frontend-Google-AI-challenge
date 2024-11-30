@@ -1,0 +1,50 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+import requests
+import base64
+
+app = FastAPI()
+
+# Replace this with your OpenAI API key
+# find your api key and paste it l=in line 11
+API_KEY = "your-openai-api-key"
+DALL_E_API_URL = "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"
+
+class ImageRequest(BaseModel):
+    description: str
+
+@app.post("/generate")
+async def generate_image(request: ImageRequest):
+    # Log the incoming description
+    print(f"Generating image for description: {request.description}")
+    
+    # Prepare the request payload
+    payload = {
+        "prompt": request.description,
+        "n": 1,  # Number of images to generate
+        "size": "512x512"  # Image size
+    }
+    
+    # Set up headers with API key
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+    }
+    
+    # Make the API call to the AI service
+    response = requests.post(DALL_E_API_URL, json=payload, headers=headers)
+    
+    if response.status_code == 200:
+        # Extract the image URL from the API response
+        image_url = response.json()["data"][0]["url"]
+        
+        # Fetch the image data from the URL
+        image_response = requests.get(image_url)
+        if image_response.status_code == 200:
+            # Encode the image data to Base64
+            image_base64 = base64.b64encode(image_response.content).decode("utf-8")
+            return {"image": image_base64}
+        else:
+            return {"error": f"Failed to fetch image from URL: {image_url}"}
+    else:
+        return {"error": f"AI service error: {response.status_code} - {response.text}"}
